@@ -96,7 +96,7 @@ class DrawingCanvas {
             this.isDrawing = false;
             this.startPoint = null;
             if(this.currScore>this.bestScore){
-              span5.innerHTML = `Best score: ` + this.currScore;
+              span5.innerHTML = `New best score: ` + this.currScore;
               this.bestScore = this.currScore;
             }
             else{
