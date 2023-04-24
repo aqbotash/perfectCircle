@@ -16,12 +16,14 @@ class DrawingCanvas {
         this.isDrawing = false;
         this.drawingData = [];
         this.arr = [];
+        this.sumOfAngles = 0;
         this.lastX = 0;
         this.lastY = 0;
         this.lastMoveTime = 0;
         this.startPoint = null;
-        this.lastScore = 0;
         this.threshold = 7000;
+        this.bestScore = 0;
+        this.currScore = 0;
         this.color = 'green';
         //invoking EventListeners
         this.canvas.addEventListener("mousedown", this.startDrawing.bind(this));
@@ -39,58 +41,99 @@ class DrawingCanvas {
         this.ctx.clearRect(0, 0, canvas.width, canvas.height);
         this.arr = [];
         this.drawingData = [];
+        this.sumOfAngles = 0;
         this.lastMoveTime = Date.now();
         span5.innerHTML =" ";
       }
        //mousemove EventHandler
        drawLine(e) {
         if (this.isDrawing) {
-          var currX = e.clientX;
-          var currY = e.clientY;
+          var currX = e.offsetX;
+          var currY = e.offsetY;
           //check for velocity
           this.velocityCheck();
           //incrementing threshold as number of points grow
           this.threshold+=2;
           //calculates distance form the center and pushes it to the array of distances
-          this.distanceFromTheCenter();
-          var dist = this.distanceFromTheCenter(currX, currY);
+          var dist = Math.sqrt((centerX-currX)**2+(centerY-currY)**2)
           this.arr.push(dist);
+          this.currScore = this.percentage();
           //check if it is too close to the center
-          this.tooClose(dist);
+          if(dist<75){
+            this.isDrawing = false;
+            span5.innerHTML = "TOO CLOSE TO THE CENTER";
+            this.currScore = 0;
+            console.log("TOO close" + dist);
+          }
+          //full circle
+
           //changing line and percentage colors according to the perfectness of the circle
           this.changeLineColor(currX, currY);
           this.changePercentageColor();
+          // Define the starting and ending points of the sector's arc
+          const endX = e.offsetX, endY = e.offsetY;
+          const angleDegrees = this.calculateAngle(endX, endY);
+          this.sumOfAngles+=angleDegrees;
+          //full circle 
+          if((angleDegrees>355&&angleDegrees<360&& this.sumOfAngles>60000)||(angleDegrees<5&&angleDegrees>0&& this.sumOfAngles>60000)) {
+          this.stopDrawing();
+          }
           //pushing the current properties of current point 
           this.drawingData.push({
-            x: e.offsetX,
-            y: e.offsetY,
+            x: currX,
+            y: currY,
             windowX: window.innerWidth,
             windowY: window.innerHeight,
             colorCh: this.ctx.strokeStyle,
             lastx:this.lastX,
             lasty:this.lastY  
           });
-         [this.lastX, this.lastY] = [e.clientX, e.clientY];}
-        } 
+         [this.lastX, this.lastY] = [e.clientX, e.clientY];
+        }
+      }
         //mouseup EventHandler 
         stopDrawing() {
             this.isDrawing = false;
             this.startPoint = null;
-            const currScore =  this.percentage();
-            if(currScore>this.lastScore){
-              span5.innerHTML = `Best score: ` + currScore;
-              this.lastScore = currScore;
+            if(this.currScore>this.bestScore){
+              span5.innerHTML = `Best score: ` + this.currScore;
+              this.bestScore = this.currScore;
             }
-            //empty the previous drawingData
+            else{
+              span5.innerHTML = `Best score: ` + this.bestScore;
+            }
           }
         //mouseout EventHandler
         warning(){
             this.isDrawing = false;
             if(span5.innerHTML===' '){
               span5.innerHTML = "DRAW A FULL CIRCLE";
+              this.currScore = 0;
             }
             this.arr = [];
         }
+        calculateAngle(endX, endY){
+          const startX = this.startPoint.x, startY = this.startPoint.y
+          const startVectorX = startX - centerX;
+          const startVectorY = startY - centerY;
+          const endVectorX = endX - centerX;
+          const endVectorY = endY - centerY;
+          const angleRadians = Math.atan2(endVectorY, endVectorX) - Math.atan2(startVectorY, startVectorX);
+          let angleDegrees = angleRadians * 180 / Math.PI;
+          if (angleDegrees < 0) {
+          angleDegrees += 360;
+          }
+          return angleDegrees;
+  }
+      //resetting scoreboard
+      reset(){
+        span1.innerHTML = 'X';
+        span1.style.color = 'red'; 
+        span2.innerHTML = 'X';
+        span2.style.color = 'red';
+        span3.innerHTML = 'X';
+        span3.style.color = 'red';
+      }
       //velocity check method
       velocityCheck(){
         const currTime = Date.now();
@@ -98,13 +141,8 @@ class DrawingCanvas {
         if(diff>7000){
           this.isDrawing = false;
           span5.innerHTML = "TOO SLOW";
+          this.currScore = 0;
         }
-      }
-      //distance from the center
-      distanceFromTheCenter(currX, currY){
-        var distance;
-        distance = Math.sqrt((centerX-currX)**2+(centerY-currY)**2);
-        return distance
       }
       //percentage getter
       percentage(){
@@ -144,12 +182,6 @@ class DrawingCanvas {
         span3.innerHTML = (percent*10)%10;
         span3.style.color = this.color;
       }
-      tooClose(dist){
-        if(dist<100){
-            this.isDrawing = false;
-            span5.innerHTML = "TOO CLOSE TO THE CENTER";
-          }
-      }
       resizeCanvas() {
         const currentDrawingData = this.drawingData;
         this.canvas.width = window.innerWidth;
@@ -159,7 +191,6 @@ class DrawingCanvas {
           this.ctx.lineJoin = 'round';
           this.ctx.lineCap = 'round';
           this.ctx.beginPath();
-          console.log(data.colorCh +"THIS IS COLOR");
           this.ctx.moveTo((data.lastx/data.windowX)*window.innerWidth, (data.lasty/data.windowY)*window.innerHeight);
           this.ctx.lineTo((data.x/data.windowX)*window.innerWidth , (data.y/data.windowY)*window.innerHeight);
           this.ctx.strokeStyle = data.colorCh;
